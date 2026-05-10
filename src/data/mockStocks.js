@@ -1,0 +1,105 @@
+// 📌 MVP용 하드코딩 종목 데이터 (실제 API 연동 전 테스트용)
+// ⚠️ 이 데이터는 투자 추천이 아닌 언급 빈도 데이터 요약입니다
+
+export const mockStocks = [
+  {
+    code: "069500",
+    name: "KODEX 200",
+    type: "ETF",
+    mentionCount: 142,
+    volatility: "낮음",
+    marketCap: "대형",
+    trustScore: 85,
+    trustLevel: "높음",
+    trustReason: "ETF 구조로 과장 표현 없음. 지수 추종 방식.",
+    policySignal: {
+      strength: "강함",
+      industry: "국내 증시 전반",
+      description: "정부 증시 부양 정책 지속 언급",
+      warning: "정책은 참고 신호일 뿐, 수익 보장 아님"
+    },
+    summary: "국내 200개 대형주를 추종하는 ETF. 분산 효과 높음.",
+    sources: ["유튜브 89회", "뉴스 53회"],
+    suggestedRatio: 0.4,
+  },
+  {
+    code: "360750",
+    name: "TIGER 미국S&P500",
+    type: "ETF",
+    mentionCount: 118,
+    volatility: "낮음",
+    marketCap: "대형",
+    trustScore: 88,
+    trustLevel: "높음",
+    trustReason: "미국 500대 기업 지수 추종. 장기 언급 안정적.",
+    policySignal: {
+      strength: "보통",
+      industry: "해외 지수",
+      description: "미국 연준 정책 방향 주시 필요",
+      warning: "환율 변동 리스크 존재"
+    },
+    summary: "미국 S&P500 지수를 추종하는 ETF. 해외 분산 효과.",
+    sources: ["유튜브 74회", "뉴스 44회"],
+    suggestedRatio: 0.3,
+  },
+  {
+    code: "005930",
+    name: "삼성전자",
+    type: "대형주",
+    mentionCount: 203,
+    volatility: "보통",
+    marketCap: "대형",
+    trustScore: 62,
+    trustLevel: "중립",
+    trustReason: "언급 많지만 과장 표현 다수 포함. 팩트 확인 필요.",
+    policySignal: {
+      strength: "강함",
+      industry: "반도체",
+      description: "정부 반도체 지원 정책 지속. K-반도체 전략.",
+      warning: "정책 수혜는 장기적. 단기 수익 보장 아님"
+    },
+    summary: "국내 대표 반도체·전자 기업. 언급량 1위.",
+    sources: ["유튜브 131회", "뉴스 72회"],
+    suggestedRatio: 0.15,
+  },
+  {
+    code: "091160",
+    name: "KODEX 반도체",
+    type: "ETF",
+    mentionCount: 97,
+    volatility: "보통",
+    marketCap: "대형",
+    trustScore: 74,
+    trustLevel: "높음",
+    trustReason: "ETF 구조로 개별 종목보다 안정적. 정책 연계 높음.",
+    policySignal: {
+      strength: "강함",
+      industry: "반도체",
+      description: "K-반도체 정책 + 정부 지원 자금 유입 언급",
+      warning: "산업 집중 ETF. 분산 효과 낮음"
+    },
+    summary: "반도체 관련 종목에 집중 투자하는 ETF.",
+    sources: ["유튜브 58회", "뉴스 39회"],
+    suggestedRatio: 0.1,
+  },
+  {
+    code: "305720",
+    name: "TIGER 2차전지테마",
+    type: "ETF",
+    mentionCount: 76,
+    volatility: "높음",
+    marketCap: "대형",
+    trustScore: 48,
+    trustLevel: "주의",
+    trustReason: "과장 표현 다수. '확정', '대박' 키워드 포함 콘텐츠 많음.",
+    policySignal: {
+      strength: "보통",
+      industry: "2차전지",
+      description: "전기차 정책 연계. 글로벌 경쟁 심화 변수.",
+      warning: "변동성 높음. 초보자 주의 필요"
+    },
+    summary: "2차전지 테마 ETF. 변동성 높아 주의 필요.",
+    sources: ["유튜브 51회", "뉴스 25회"],
+    suggestedRatio: 0.05,
+  },
+]

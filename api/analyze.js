@@ -3,7 +3,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: '허용되지 않는 메서드' })
   }
 
-  const { stockName, stockCode, sources, mentionCount, volatility } = req.body
+  const { stockName, stockCode, sources, mentionCount, volatility, articles } = req.body
 
   if (!stockName) {
     return res.status(400).json({ error: '종목명이 필요합니다' })
@@ -23,8 +23,8 @@ export default async function handler(req, res) {
         messages: [
           {
             role: 'user',
-            content: `당신은 투자 정보 신뢰도를 분석하는 AI입니다.
-아래 종목 정보를 분석하고 JSON 형식으로만 응답하세요.
+            content: `당신은 초보 투자자를 위한 투자 정보 신뢰도 분석 AI입니다.
+아래 종목 정보와 최신 뉴스를 분석하고 JSON 형식으로만 응답하세요.
 
 종목명: ${stockName}
 종목코드: ${stockCode}
@@ -32,12 +32,24 @@ export default async function handler(req, res) {
 총 언급 횟수: ${mentionCount}회
 변동성: ${volatility}
 
-다음 JSON 형식으로만 응답하세요 (다른 텍스트 없이):
+최신 뉴스 기사:
+${articles?.length > 0
+  ? articles.map((a, i) => `${i + 1}. ${a.title}`).join('\n')
+  : '뉴스 없음'
+}
+
+분석 기준:
+1. 뉴스 제목에 "확정", "대박", "무조건" 등 과장 표현 있으면 신뢰도 낮춤
+2. ETF는 개별주보다 신뢰도 높게 평가
+3. 언급 횟수가 많을수록 신뢰도 가중치 부여
+4. 초보 투자자 관점에서 쉽게 설명
+
+다음 JSON 형식으로만 응답하세요 (마크다운 없이 순수 JSON):
 {
   "trustScore": 0~100 사이 숫자,
   "trustLevel": "높음" 또는 "중립" 또는 "주의",
-  "trustReason": "신뢰도 판단 이유 2~3문장",
-  "warnings": ["주의사항1", "주의사항2"],
+  "trustReason": "뉴스 내용 기반 신뢰도 판단 이유 2~3문장",
+  "warnings": ["주의사항1", "주의사항2", "주의사항3"],
   "summary": "초보 투자자를 위한 한 줄 요약"
 }`
           }

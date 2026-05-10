@@ -52,7 +52,8 @@ export default function Detail() {
           stockCode: stock.code,
           sources: stock.sources,
           mentionCount: stock.mentionCount,
-          volatility: stock.volatility
+          volatility: stock.volatility,
+          articles: stock.articles || []
         })
       })
 

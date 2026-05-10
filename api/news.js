@@ -23,7 +23,13 @@ const searchNaver = async (query, clientId, clientSecret) => {
     const data = await res.json()
 
     return (data.items || []).map((item) => ({
-      title: item.title.replace(/<[^>]*>/g, ''),
+      title: item.title
+        .replace(/<[^>]*>/g, '')
+        .replace(/&quot;/g, '"')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&#39;/g, "'"),
       link: item.originallink || item.link,
       pubDate: item.pubDate,
     }))

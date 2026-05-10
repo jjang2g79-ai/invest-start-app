@@ -53,7 +53,8 @@ export default function Detail() {
           sources: stock.sources,
           mentionCount: stock.mentionCount,
           volatility: stock.volatility,
-          articles: stock.articles || []
+          articles: stock.articles || [],
+          marketData: stock.marketData || null,
         })
       })
 
@@ -122,6 +123,41 @@ export default function Detail() {
               ))}
             </div>
           </div>
+
+          {/* 한투 시장 데이터 */}
+          {stock.marketData && (
+            <div className="bg-white rounded-2xl p-4 shadow-sm">
+              <h2 className="text-sm font-bold text-gray-700 mb-3">📈 실시간 시장 데이터</h2>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-gray-50 rounded-xl p-3">
+                  <p className="text-xs text-gray-400 mb-1">현재가</p>
+                  <p className="text-base font-bold text-gray-800">₩{stock.marketData.currentPrice}</p>
+                </div>
+                <div className="bg-gray-50 rounded-xl p-3">
+                  <p className="text-xs text-gray-400 mb-1">등락률</p>
+                  <p className={`text-base font-bold ${
+                    stock.marketData.changeSign === '2' || stock.marketData.changeSign === '1'
+                      ? 'text-red-500'
+                      : stock.marketData.changeSign === '4' || stock.marketData.changeSign === '5'
+                      ? 'text-blue-500'
+                      : 'text-gray-500'
+                  }`}>
+                    {stock.marketData.changeSign === '2' || stock.marketData.changeSign === '1' ? '▲' :
+                     stock.marketData.changeSign === '4' || stock.marketData.changeSign === '5' ? '▼' : '-'}
+                    {stock.marketData.changeRate}%
+                  </p>
+                </div>
+                <div className="bg-gray-50 rounded-xl p-3">
+                  <p className="text-xs text-gray-400 mb-1">52주 최고</p>
+                  <p className="text-sm font-bold text-gray-800">₩{stock.marketData.high52}</p>
+                </div>
+                <div className="bg-gray-50 rounded-xl p-3">
+                  <p className="text-xs text-gray-400 mb-1">52주 최저</p>
+                  <p className="text-sm font-bold text-gray-800">₩{stock.marketData.low52}</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* 관련 뉴스 목록 */}
           {stock.articles && stock.articles.length > 0 && (

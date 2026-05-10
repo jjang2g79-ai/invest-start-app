@@ -173,6 +173,27 @@ export default function Result() {
                   </div>
                 </div>
 
+                {/* 한투 시장 데이터 */}
+                {stock.marketData && (
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-sm font-bold text-gray-800">
+                      ₩{stock.marketData.currentPrice}
+                    </span>
+                    <span className={`text-sm font-medium ${
+                      stock.marketData.changeSign === '2' || stock.marketData.changeSign === '1'
+                        ? 'text-red-500'
+                        : stock.marketData.changeSign === '4' || stock.marketData.changeSign === '5'
+                        ? 'text-blue-500'
+                        : 'text-gray-500'
+                    }`}>
+                      {stock.marketData.changeSign === '2' || stock.marketData.changeSign === '1' ? '▲' :
+                       stock.marketData.changeSign === '4' || stock.marketData.changeSign === '5' ? '▼' : '-'}
+                      {stock.marketData.changeRate}%
+                    </span>
+                    <span className="text-xs text-gray-400">거래량 {stock.marketData.volume}</span>
+                  </div>
+                )}
+
                 {/* 금액 배분 */}
                 <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
                   <span className="text-xs text-gray-500">배분 참고금액</span>

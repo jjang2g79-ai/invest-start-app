@@ -3,7 +3,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: '허용되지 않는 메서드' })
   }
 
-  const { stockName, stockCode, sources, mentionCount, volatility, articles } = req.body
+  const { stockName, stockCode, sources, mentionCount, volatility, articles, marketData } = req.body
 
   if (!stockName) {
     return res.status(400).json({ error: '종목명이 필요합니다' })
@@ -31,6 +31,10 @@ export default async function handler(req, res) {
 언급 출처: ${sources?.join(', ')}
 총 언급 횟수: ${mentionCount}회
 변동성: ${volatility}
+현재가: ${marketData?.currentPrice || '정보 없음'}
+등락률: ${marketData?.changeRate || '0'}%
+52주 최고: ${marketData?.high52 || '정보 없음'}
+52주 최저: ${marketData?.low52 || '정보 없음'}
 
 최신 뉴스 기사:
 ${articles?.length > 0

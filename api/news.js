@@ -1,10 +1,11 @@
 import { getKisToken } from './kisToken.js'
 
+const KIS_BASE = 'https://openapi.koreainvestment.com:9443'
+
 const searchNaver = async (query, clientId, clientSecret) => {
   try {
     const encoded = encodeURIComponent(query)
     const url = `https://openapi.naver.com/v1/search/news.json?query=${encoded}&display=5&sort=date`
-
     const res = await fetch(url, {
       headers: {
         'X-Naver-Client-Id': clientId,
@@ -12,10 +13,8 @@ const searchNaver = async (query, clientId, clientSecret) => {
       },
       signal: AbortSignal.timeout(5000),
     })
-
     if (!res.ok) return []
     const data = await res.json()
-
     return (data.items || []).map((item) => ({
       title: item.title
         .replace(/<[^>]*>/g, '')
@@ -32,68 +31,10 @@ const searchNaver = async (query, clientId, clientSecret) => {
   }
 }
 
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-
-  const clientId     = process.env.NAVER_CLIENT_ID
-  const clientSecret = process.env.NAVER_CLIENT_SECRET
-
-  if (!clientId || !clientSecret) {
-    return res.status(200).json({ source: 'mock', stocks: getMockData() })
-  }
-
+const getTopStocks = async (token, appKey, appSecret) => {
   try {
-    // STEP 1: 거래량 상위 종목 수집 (직접 함수 호출)
-    const topStocks = await getTopStocks()
-
-    // STEP 2: 종목별 뉴스 병렬 수집
-    const results = await Promise.all(
-      topStocks.map(async (stock) => {
-        const articles = await searchNaver(stock.name, clientId, clientSecret)
-        return {
-          ...stock,
-          mentionCount: articles.length,
-          trustScore: 70,
-          trustLevel: '중립',
-          trustReason: 'AI 분석 버튼을 눌러 실시간 신뢰도를 확인하세요.',
-          policySignal: {
-            strength: '보통',
-            industry: stock.type === 'ETF' ? '지수/테마' : '개별주',
-            description: '정책 신호는 AI 분석에서 확인하세요.',
-            warning: '정책은 참고 신호일 뿐, 수익 보장 아님',
-          },
-          summary: `${stock.name} — 최근 뉴스 ${articles.length}건 수집`,
-          sources: [`네이버 뉴스 ${articles.length}건`],
-          articles: articles.slice(0, 3),
-        }
-      })
-    )
-
-    results.sort((a, b) => b.mentionCount - a.mentionCount)
-
-    return res.status(200).json({ source: 'naver', stocks: results })
-
-  } catch (error) {
-    console.error('뉴스 수집 오류:', error)
-    return res.status(200).json({ source: 'mock', stocks: getMockData() })
-  }
-}
-
-const getTopStocks = async () => {
-  try {
-    const appKey    = process.env.KIS_APP_KEY
-    const appSecret = process.env.KIS_APP_SECRET
-
-    if (!appKey || !appSecret) {
-      return getDefaultStocks()
-    }
-
-    // 캐싱된 토큰 사용 (하루 1회만 발급)
-    const token = await getKisToken(appKey, appSecret)
-
-    // 거래량 상위 종목 조회
-    const rankRes = await fetch(
-      'https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/ranking/volume',
+    const res = await fetch(
+      `${KIS_BASE}/uapi/domestic-stock/v1/ranking/volume`,
       {
         headers: {
           'Content-Type': 'application/json',
@@ -106,10 +47,9 @@ const getTopStocks = async () => {
         signal: AbortSignal.timeout(5000),
       }
     )
-
-    if (!rankRes.ok) return getDefaultStocks()
-    const rankData = await rankRes.json()
-    const items = rankData.output || []
+    if (!res.ok) return getDefaultStocks()
+    const data = await res.json()
+    const items = data.output || []
 
     const stocks = items
       .slice(0, 30)
@@ -122,7 +62,8 @@ const getTopStocks = async () => {
           .some(k => name.includes(k))
         if (isExcluded || !code) return null
         return {
-          code, name,
+          code,
+          name,
           type: isETF ? 'ETF' : '대형주',
           volatility: isETF ? '낮음' : '보통',
           marketCap: '대형',
@@ -132,42 +73,125 @@ const getTopStocks = async () => {
       .filter(Boolean)
       .slice(0, 20)
 
-    if (stocks.length < 3) return getDefaultStocks()
-    return stocks
-
-  } catch (err) {
-    console.log('KIS API 오류 → 기본 종목:', err.message)
+    return stocks.length >= 3 ? stocks : getDefaultStocks()
+  } catch {
     return getDefaultStocks()
   }
 }
 
-const getDefaultStocks = () => [
-  { code:'069500', name:'KODEX 200',               type:'ETF',    volatility:'낮음', marketCap:'대형', suggestedRatio:0.15 },
-  { code:'360750', name:'TIGER 미국S&P500',         type:'ETF',    volatility:'낮음', marketCap:'대형', suggestedRatio:0.15 },
-  { code:'379800', name:'KODEX 미국S&P500TR',       type:'ETF',    volatility:'낮음', marketCap:'대형', suggestedRatio:0.1  },
-  { code:'133690', name:'TIGER 미국나스닥100',      type:'ETF',    volatility:'보통', marketCap:'대형', suggestedRatio:0.1  },
-  { code:'102110', name:'TIGER 200',                type:'ETF',    volatility:'낮음', marketCap:'대형', suggestedRatio:0.1  },
-  { code:'091160', name:'KODEX 반도체',             type:'ETF',    volatility:'보통', marketCap:'대형', suggestedRatio:0.05 },
-  { code:'305720', name:'TIGER 2차전지테마',         type:'ETF',    volatility:'높음', marketCap:'대형', suggestedRatio:0.05 },
-  { code:'229200', name:'KODEX 코스닥150',           type:'ETF',    volatility:'보통', marketCap:'대형', suggestedRatio:0.05 },
-  { code:'364980', name:'TIGER 글로벌리튬&2차전지', type:'ETF',    volatility:'높음', marketCap:'대형', suggestedRatio:0.03 },
-  { code:'005930', name:'삼성전자',                 type:'대형주', volatility:'보통', marketCap:'대형', suggestedRatio:0.05 },
-  { code:'000660', name:'SK하이닉스',               type:'대형주', volatility:'보통', marketCap:'대형', suggestedRatio:0.05 },
-  { code:'005490', name:'POSCO홀딩스',              type:'대형주', volatility:'보통', marketCap:'대형', suggestedRatio:0.03 },
-  { code:'035420', name:'NAVER',                    type:'대형주', volatility:'보통', marketCap:'대형', suggestedRatio:0.03 },
-  { code:'051910', name:'LG화학',                   type:'대형주', volatility:'보통', marketCap:'대형', suggestedRatio:0.03 },
-  { code:'006400', name:'삼성SDI',                  type:'대형주', volatility:'보통', marketCap:'대형', suggestedRatio:0.03 },
-  { code:'035720', name:'카카오',                   type:'대형주', volatility:'보통', marketCap:'대형', suggestedRatio:0.03 },
-  { code:'003550', name:'LG',                       type:'대형주', volatility:'낮음', marketCap:'대형', suggestedRatio:0.03 },
-  { code:'068270', name:'셀트리온',                 type:'대형주', volatility:'보통', marketCap:'대형', suggestedRatio:0.03 },
-  { code:'207940', name:'삼성바이오로직스',          type:'대형주', volatility:'보통', marketCap:'대형', suggestedRatio:0.03 },
-  { code:'012330', name:'현대모비스',               type:'대형주', volatility:'낮음', marketCap:'대형', suggestedRatio:0.03 },
-]
+const getStockDetail = async (code, token, appKey, appSecret) => {
+  try {
+    const res = await fetch(
+      `${KIS_BASE}/uapi/domestic-stock/v1/quotations/inquire-price?fid_cond_mrkt_div_code=J&fid_input_iscd=${code}`,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'authorization': `Bearer ${token}`,
+          'appkey': appKey,
+          'appsecret': appSecret,
+          'tr_id': 'FHKST01010100',
+          'custtype': 'P',
+        },
+        signal: AbortSignal.timeout(5000),
+      }
+    )
+    if (!res.ok) return null
+    const data = await res.json()
+    const output = data.output || {}
+    return {
+      currentPrice: Number(output.stck_prpr || 0).toLocaleString('ko-KR'),
+      changeRate: output.prdy_ctrt || '0',
+      changeSign: output.prdy_vrss_sign || '3',
+      volume: Number(output.acml_vol || 0).toLocaleString('ko-KR'),
+      high52: Number(output.w52_hgpr || 0).toLocaleString('ko-KR'),
+      low52: Number(output.w52_lwpr || 0).toLocaleString('ko-KR'),
+    }
+  } catch {
+    return null
+  }
+}
+
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+
+  const appKey      = process.env.KIS_APP_KEY
+  const appSecret   = process.env.KIS_APP_SECRET
+  const naverCid    = process.env.NAVER_CLIENT_ID
+  const naverSecret = process.env.NAVER_CLIENT_SECRET
+
+  if (!appKey || !appSecret) {
+    return res.status(200).json({ source: 'mock', stocks: getMockData() })
+  }
+
+  try {
+    const token = await getKisToken(appKey, appSecret)
+    const topStocks = await getTopStocks(token, appKey, appSecret)
+
+    const results = await Promise.all(
+      topStocks.map(async (stock) => {
+        const [detail, articles] = await Promise.all([
+          getStockDetail(stock.code, token, appKey, appSecret),
+          naverCid && naverSecret
+            ? searchNaver(stock.name, naverCid, naverSecret)
+            : Promise.resolve([]),
+        ])
+
+        const changeRate = Math.abs(parseFloat(detail?.changeRate || 0))
+        const volatility = changeRate >= 3 ? '높음' : changeRate >= 1.5 ? '보통' : '낮음'
+
+        return {
+          ...stock,
+          volatility,
+          mentionCount: articles.length,
+          trustScore: 70,
+          trustLevel: '중립',
+          trustReason: 'AI 분석 버튼을 눌러 실시간 신뢰도를 확인하세요.',
+          policySignal: {
+            strength: '보통',
+            industry: stock.type === 'ETF' ? '지수/테마' : '개별주',
+            description: '정책 신호는 AI 분석에서 확인하세요.',
+            warning: '정책은 참고 신호일 뿐, 수익 보장 아님',
+          },
+          summary: `${stock.name} — 거래량 상위 종목`,
+          sources: [`네이버 뉴스 ${articles.length}건`],
+          articles: articles.slice(0, 3),
+          marketData: detail ? {
+            currentPrice: detail.currentPrice,
+            changeRate: detail.changeRate,
+            changeSign: detail.changeSign,
+            volume: detail.volume,
+            high52: detail.high52,
+            low52: detail.low52,
+          } : null,
+        }
+      })
+    )
+
+    results.sort((a, b) => b.mentionCount - a.mentionCount)
+
+    return res.status(200).json({ source: 'kis', stocks: results })
+
+  } catch (error) {
+    console.error('데이터 수집 오류:', error.message)
+    return res.status(200).json({ source: 'mock', stocks: getMockData() })
+  }
+}
 
 const getMockData = () => [
-  { code:'069500', name:'KODEX 200',        mentionCount:5, type:'ETF',   volatility:'낮음', marketCap:'대형', trustScore:85, trustLevel:'높음', trustReason:'ETF 구조로 과장 표현 없음.', policySignal:{strength:'강함', industry:'국내 증시 전반', description:'정부 증시 부양 정책', warning:'수익 보장 아님'}, summary:'국내 200개 대형주 ETF', sources:['네이버 뉴스 5건'], articles:[], suggestedRatio:0.4  },
-  { code:'360750', name:'TIGER 미국S&P500', mentionCount:4, type:'ETF',   volatility:'낮음', marketCap:'대형', trustScore:88, trustLevel:'높음', trustReason:'미국 지수 추종 안정적.',     policySignal:{strength:'보통', industry:'해외 지수',       description:'미국 연준 동향',   warning:'환율 리스크'},         summary:'미국 S&P500 ETF',       sources:['네이버 뉴스 4건'], articles:[], suggestedRatio:0.3  },
-  { code:'005930', name:'삼성전자',          mentionCount:5, type:'대형주', volatility:'보통', marketCap:'대형', trustScore:62, trustLevel:'중립', trustReason:'과장 표현 다수 포함.',     policySignal:{strength:'강함', industry:'반도체',           description:'K-반도체 정책',    warning:'단기 수익 보장 아님'}, summary:'국내 대표 반도체 기업', sources:['네이버 뉴스 5건'], articles:[], suggestedRatio:0.15 },
-  { code:'091160', name:'KODEX 반도체',      mentionCount:3, type:'ETF',   volatility:'보통', marketCap:'대형', trustScore:74, trustLevel:'높음', trustReason:'ETF 구조, 정책 연계 높음.', policySignal:{strength:'강함', industry:'반도체',           description:'K-반도체 정책',    warning:'산업 집중 ETF'},       summary:'반도체 ETF',             sources:['네이버 뉴스 3건'], articles:[], suggestedRatio:0.1  },
-  { code:'305720', name:'TIGER 2차전지',     mentionCount:2, type:'ETF',   volatility:'높음', marketCap:'대형', trustScore:48, trustLevel:'주의', trustReason:'과장 표현 다수.',           policySignal:{strength:'보통', industry:'2차전지',           description:'전기차 정책 연계', warning:'변동성 높음'},         summary:'2차전지 ETF. 주의 필요.', sources:['네이버 뉴스 2건'], articles:[], suggestedRatio:0.05 },
+  { code:'069500', name:'KODEX 200',        type:'ETF',    volatility:'낮음', marketCap:'대형', trustScore:85, trustLevel:'높음', trustReason:'ETF 구조', policySignal:{strength:'강함',industry:'국내 증시',description:'정부 정책',warning:'수익 보장 아님'}, summary:'국내 200개 대형주 ETF', sources:['기본 데이터'], articles:[], marketData:null, suggestedRatio:0.2,  mentionCount:0 },
+  { code:'360750', name:'TIGER 미국S&P500', type:'ETF',    volatility:'낮음', marketCap:'대형', trustScore:88, trustLevel:'높음', trustReason:'미국 지수 추종', policySignal:{strength:'보통',industry:'해외 지수',description:'연준 동향',warning:'환율 리스크'}, summary:'미국 S&P500 ETF', sources:['기본 데이터'], articles:[], marketData:null, suggestedRatio:0.2,  mentionCount:0 },
+  { code:'005930', name:'삼성전자',          type:'대형주', volatility:'보통', marketCap:'대형', trustScore:62, trustLevel:'중립', trustReason:'과장 표현 주의', policySignal:{strength:'강함',industry:'반도체',description:'K-반도체 정책',warning:'단기 수익 보장 아님'}, summary:'국내 대표 반도체', sources:['기본 데이터'], articles:[], marketData:null, suggestedRatio:0.1,  mentionCount:0 },
+]
+
+const getDefaultStocks = () => [
+  { code:'069500', name:'KODEX 200',          type:'ETF',    volatility:'낮음', marketCap:'대형', suggestedRatio:0.2  },
+  { code:'360750', name:'TIGER 미국S&P500',   type:'ETF',    volatility:'낮음', marketCap:'대형', suggestedRatio:0.2  },
+  { code:'379800', name:'KODEX 미국S&P500TR', type:'ETF',    volatility:'낮음', marketCap:'대형', suggestedRatio:0.15 },
+  { code:'005930', name:'삼성전자',            type:'대형주', volatility:'보통', marketCap:'대형', suggestedRatio:0.1  },
+  { code:'000660', name:'SK하이닉스',          type:'대형주', volatility:'보통', marketCap:'대형', suggestedRatio:0.05 },
+  { code:'091160', name:'KODEX 반도체',        type:'ETF',    volatility:'보통', marketCap:'대형', suggestedRatio:0.1  },
+  { code:'305720', name:'TIGER 2차전지테마',   type:'ETF',    volatility:'높음', marketCap:'대형', suggestedRatio:0.05 },
+  { code:'102110', name:'TIGER 200',           type:'ETF',    volatility:'낮음', marketCap:'대형', suggestedRatio:0.1  },
+  { code:'133690', name:'TIGER 미국나스닥100', type:'ETF',    volatility:'보통', marketCap:'대형', suggestedRatio:0.1  },
+  { code:'005490', name:'POSCO홀딩스',         type:'대형주', volatility:'보통', marketCap:'대형', suggestedRatio:0.05 },
 ]

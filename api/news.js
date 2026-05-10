@@ -41,11 +41,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    // STEP 1: 거래량 상위 종목 수집
-    const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'
-    const stocksRes = await fetch(`${baseUrl}/api/stocks`)
-    const stocksData = await stocksRes.json()
-    const topStocks = stocksData.stocks.slice(0, 20)
+    // STEP 1: 거래량 상위 종목 수집 (직접 함수 호출)
+    const topStocks = await getTopStocks()
 
     // STEP 2: 종목별 뉴스 병렬 수집
     const results = await Promise.all(
@@ -77,6 +74,67 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('뉴스 수집 오류:', error)
     return res.status(200).json({ source: 'mock', stocks: getMockData() })
+  }
+}
+
+const getTopStocks = async () => {
+  try {
+    const fetchMarket = async (sosok) => {
+      const res = await fetch(
+        `https://finance.naver.com/sise/sise_quant.naver?sosok=${sosok}`,
+        {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+            'Accept-Language': 'ko-KR,ko;q=0.9',
+          },
+          signal: AbortSignal.timeout(5000),
+        }
+      )
+      if (!res.ok) return []
+      const html = await res.text()
+
+      const stocks = []
+      const pattern = /href="\/item\/main\.naver\?code=(\d{6})">([^<]+)<\/a>/g
+      let match
+
+      while ((match = pattern.exec(html)) !== null && stocks.length < 15) {
+        const code = match[1]
+        const name = match[2].trim()
+
+        const isETF = ['ETF','KODEX','TIGER','KINDEX','HANARO','ARIRANG']
+          .some(k => name.includes(k))
+        const isExcluded = ['레버리지','인버스','곱버스','2X','선물']
+          .some(k => name.includes(k))
+
+        if (!isExcluded) {
+          stocks.push({
+            code,
+            name,
+            type: isETF ? 'ETF' : '대형주',
+            volatility: isETF ? '낮음' : '보통',
+            marketCap: '대형',
+            suggestedRatio: isETF ? 0.15 : 0.1,
+          })
+        }
+      }
+      return stocks
+    }
+
+    const [kospi, kosdaq] = await Promise.all([fetchMarket(0), fetchMarket(1)])
+    const all = [...kospi, ...kosdaq]
+    const unique = all.filter(
+      (s, i, self) => self.findIndex(x => x.code === s.code) === i
+    )
+    return unique.slice(0, 20)
+
+  } catch {
+    return [
+      { code:'069500', name:'KODEX 200',        type:'ETF',    volatility:'낮음', marketCap:'대형', suggestedRatio:0.2  },
+      { code:'360750', name:'TIGER 미국S&P500', type:'ETF',    volatility:'낮음', marketCap:'대형', suggestedRatio:0.2  },
+      { code:'005930', name:'삼성전자',          type:'대형주', volatility:'보통', marketCap:'대형', suggestedRatio:0.1  },
+      { code:'091160', name:'KODEX 반도체',      type:'ETF',    volatility:'보통', marketCap:'대형', suggestedRatio:0.1  },
+      { code:'305720', name:'TIGER 2차전지',     type:'ETF',    volatility:'높음', marketCap:'대형', suggestedRatio:0.05 },
+    ]
   }
 }
 

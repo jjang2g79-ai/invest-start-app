@@ -2,6 +2,7 @@ import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { getInvestAmount, getTendency } from "../utils/storage"
 import { mockStocks as fallbackStocks } from "../data/mockStocks"
+import { calcBuyable, formatKRW } from "../utils/stockCalc"
 
 const filterByTendency = (stocks, tendency) => {
   if (tendency === "safe") {
@@ -194,13 +195,33 @@ export default function Result() {
                   </div>
                 )}
 
-                {/* 금액 배분 */}
-                <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
-                  <span className="text-xs text-gray-500">배분 참고금액</span>
-                  <span className="text-sm font-bold text-blue-600">
-                    {formatAllocAmount(amount, stock.suggestedRatio)}
-                  </span>
-                </div>
+                {/* 배분 금액 + 구매 가능 여부 */}
+                {(() => {
+                  const currentPrice = stock.marketData?.currentPrice
+                  const calc = calcBuyable(amount, stock.suggestedRatio, currentPrice)
+                  return (
+                    <div className={`rounded-xl px-3 py-2 flex items-center justify-between
+                      ${calc && !calc.canBuy ? 'bg-orange-50' : 'bg-gray-50'}`}>
+                      <span className="text-xs text-gray-500">
+                        {calc?.canBuy === false ? '⚠️ 1주 구매 불가' : '배분 참고금액'}
+                      </span>
+                      <div className="text-right">
+                        {calc ? (
+                          <span className={`text-sm font-bold ${calc.canBuy ? 'text-blue-600' : 'text-orange-500'}`}>
+                            {calc.canBuy
+                              ? `${calc.buyableShares}주 (${formatKRW(calc.actualAmount)})`
+                              : `최소 ${formatKRW(calc.minRequired)}`
+                            }
+                          </span>
+                        ) : (
+                          <span className="text-sm font-bold text-blue-600">
+                            약 {formatKRW(Math.floor(amount * stock.suggestedRatio))}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })()}
 
                 <div className="text-right text-xs text-gray-400 mt-2">
                   상세 보기 →

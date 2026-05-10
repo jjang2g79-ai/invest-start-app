@@ -3,6 +3,7 @@ import { getInvestAmount, saveRecord } from "../utils/storage"
 import { mockStocks } from "../data/mockStocks"
 import { useState } from "react"
 import KisDeepLink from "../components/KisDeepLink"
+import { calcBuyable, formatKRW } from "../utils/stockCalc"
 
 const trustStyle = {
   높음: { bg: "bg-green-50", border: "border-green-200", badge: "bg-green-100 text-green-700", icon: "✅" },
@@ -242,17 +243,73 @@ export default function Detail() {
             </div>
           </div>
 
-          {/* 배분 금액 */}
-          <div className="bg-white rounded-2xl p-4 shadow-sm">
-            <h2 className="text-sm font-bold text-gray-700 mb-1">💰 배분 참고금액</h2>
-            <p className="text-xs text-gray-400 mb-3">
-              투자금 {(amount / 10000).toFixed(0)}만원의 {(stock.suggestedRatio * 100).toFixed(0)}% 기준
-            </p>
-            <div className="text-center py-3 bg-blue-50 rounded-xl">
-              <span className="text-2xl font-bold text-blue-600">약 {allocMan}만원</span>
-            </div>
-            <p className="text-xs text-gray-400 text-center mt-2">참고용 수치입니다. 직접 조정하세요.</p>
-          </div>
+          {/* 배분 금액 + 구매 가능 주수 */}
+          {(() => {
+            const currentPrice = stock.marketData?.currentPrice
+            const calc = calcBuyable(amount, stock.suggestedRatio, currentPrice)
+
+            return (
+              <div className={`rounded-2xl p-4 ${calc?.canBuy ? 'bg-blue-50' : 'bg-orange-50'}`}>
+                <h2 className="text-sm font-bold text-gray-700 mb-1">💰 구매 가능 분석</h2>
+                <p className="text-xs text-gray-500 mb-3">
+                  투자금 {formatKRW(amount)}의 {(stock.suggestedRatio * 100).toFixed(0)}% 배분 기준
+                </p>
+
+                {calc ? (
+                  <>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs text-gray-500">현재가 (1주)</span>
+                      <span className="text-sm font-bold text-gray-800">
+                        ₩{calc.price.toLocaleString('ko-KR')}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs text-gray-500">배분 금액</span>
+                      <span className="text-sm font-bold text-gray-800">
+                        {formatKRW(calc.allocAmount)}
+                      </span>
+                    </div>
+
+                    {calc.canBuy ? (
+                      <div className="bg-blue-100 rounded-xl p-3 mb-2">
+                        <p className="text-xs text-blue-600 mb-1">✅ 구매 가능</p>
+                        <p className="text-2xl font-bold text-blue-700">
+                          {calc.buyableShares}주 구매 가능
+                        </p>
+                        <p className="text-xs text-blue-500 mt-1">
+                          실제 구매금액 {formatKRW(calc.actualAmount)}
+                          {calc.leftover > 0 && ` · 잔액 ${formatKRW(calc.leftover)}`}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="bg-orange-100 rounded-xl p-3 mb-2">
+                        <p className="text-xs text-orange-600 mb-1">⚠️ 배분 금액으로 1주 구매 불가</p>
+                        <p className="text-sm font-bold text-orange-700">
+                          최소 {formatKRW(calc.minRequired)} 필요
+                        </p>
+                        <p className="text-xs text-orange-500 mt-1">
+                          투자금을 늘리거나 다른 종목을 선택하세요
+                        </p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div>
+                    <p className="text-2xl font-bold text-blue-600 mb-1">
+                      약 {formatKRW(Math.floor(amount * stock.suggestedRatio))}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      실시간 가격 로딩 후 주수 계산됩니다
+                    </p>
+                  </div>
+                )}
+
+                <p className="text-xs text-gray-400 mt-2">
+                  ※ 참고용 수치입니다. 실제 매수는 증권사 앱에서 확인하세요.
+                </p>
+              </div>
+            )
+          })()}
 
           {/* AI 신뢰도 분석 섹션 */}
           <div className="bg-white rounded-2xl p-4 shadow-sm">

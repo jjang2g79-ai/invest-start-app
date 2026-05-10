@@ -1,11 +1,3 @@
-const STOCK_KEYWORDS = [
-  { code: '069500', name: 'KODEX 200',        keyword: 'KODEX200 ETF',   type: 'ETF',    volatility: '낮음', suggestedRatio: 0.4  },
-  { code: '360750', name: 'TIGER 미국S&P500', keyword: 'S&P500 ETF',     type: 'ETF',    volatility: '낮음', suggestedRatio: 0.3  },
-  { code: '005930', name: '삼성전자',          keyword: '삼성전자 주가',   type: '대형주', volatility: '보통', suggestedRatio: 0.15 },
-  { code: '091160', name: 'KODEX 반도체',      keyword: '반도체 ETF',     type: 'ETF',    volatility: '보통', suggestedRatio: 0.1  },
-  { code: '305720', name: 'TIGER 2차전지',     keyword: '2차전지 ETF',    type: 'ETF',    volatility: '높음', suggestedRatio: 0.05 },
-]
-
 const searchNaver = async (query, clientId, clientSecret) => {
   try {
     const encoded = encodeURIComponent(query)
@@ -49,30 +41,30 @@ export default async function handler(req, res) {
   }
 
   try {
+    // STEP 1: 거래량 상위 종목 수집
+    const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'
+    const stocksRes = await fetch(`${baseUrl}/api/stocks`)
+    const stocksData = await stocksRes.json()
+    const topStocks = stocksData.stocks.slice(0, 20)
+
+    // STEP 2: 종목별 뉴스 병렬 수집
     const results = await Promise.all(
-      STOCK_KEYWORDS.map(async (stock) => {
-        const articles = await searchNaver(stock.keyword, clientId, clientSecret)
+      topStocks.map(async (stock) => {
+        const articles = await searchNaver(stock.name, clientId, clientSecret)
         return {
-          code: stock.code,
-          name: stock.name,
-          type: stock.type,
-          volatility: stock.volatility,
-          marketCap: '대형',
+          ...stock,
           mentionCount: articles.length,
           trustScore: 70,
           trustLevel: '중립',
           trustReason: 'AI 분석 버튼을 눌러 실시간 신뢰도를 확인하세요.',
           policySignal: {
-            strength: stock.code === '005930' || stock.code === '091160' ? '강함' :
-                      stock.code === '305720' ? '보통' : '강함',
-            industry: stock.code === '069500' ? '국내 증시 전반' :
-                      stock.code === '360750' ? '해외 지수' : '반도체/2차전지',
+            strength: '보통',
+            industry: stock.type === 'ETF' ? '지수/테마' : '개별주',
             description: '정책 신호는 AI 분석에서 확인하세요.',
             warning: '정책은 참고 신호일 뿐, 수익 보장 아님',
           },
           summary: `${stock.name} — 최근 뉴스 ${articles.length}건 수집`,
           sources: [`네이버 뉴스 ${articles.length}건`],
-          suggestedRatio: stock.suggestedRatio,
           articles: articles.slice(0, 3),
         }
       })
@@ -83,7 +75,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ source: 'naver', stocks: results })
 
   } catch (error) {
-    console.error('네이버 API 오류:', error)
+    console.error('뉴스 수집 오류:', error)
     return res.status(200).json({ source: 'mock', stocks: getMockData() })
   }
 }

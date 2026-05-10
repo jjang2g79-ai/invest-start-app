@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom"
+import { useParams, useNavigate, useLocation } from "react-router-dom"
 import { getInvestAmount, saveRecord } from "../utils/storage"
 import { mockStocks } from "../data/mockStocks"
 import { useState } from "react"
@@ -19,13 +19,14 @@ const policyStyle = {
 export default function Detail() {
   const { code } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const amount = getInvestAmount()
   const [recorded, setRecorded] = useState(false)
   const [aiAnalysis, setAiAnalysis] = useState(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analyzeError, setAnalyzeError] = useState("")
 
-  const stock = mockStocks.find((s) => s.code === code)
+  const stock = location.state?.stock || mockStocks.find((s) => s.code === code)
 
   if (!stock) {
     navigate("/result")
@@ -120,6 +121,31 @@ export default function Detail() {
               ))}
             </div>
           </div>
+
+          {/* 관련 뉴스 목록 */}
+          {stock.articles && stock.articles.length > 0 && (
+            <div className="bg-white rounded-2xl p-4 shadow-sm">
+              <h2 className="text-sm font-bold text-gray-700 mb-3">📰 관련 최신 뉴스</h2>
+              <div className="flex flex-col gap-2">
+                {stock.articles.map((article, i) => (
+                  <a
+                    key={i}
+                    href={article.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block bg-gray-50 rounded-xl p-3 hover:bg-gray-100 transition-colors"
+                  >
+                    <p className="text-sm text-gray-800 font-medium leading-relaxed mb-1">
+                      {article.title}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {new Date(article.pubDate).toLocaleDateString('ko-KR')} · 기사 보기 →
+                    </p>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* 신뢰도 분석 */}
           <div className={`rounded-2xl p-4 border ${trust.bg} ${trust.border}`}>

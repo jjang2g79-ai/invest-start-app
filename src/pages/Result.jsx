@@ -114,7 +114,7 @@ export default function Result() {
         {/* 안내 배너 */}
         <div className="mx-4 mt-4 bg-blue-50 border border-blue-200 rounded-xl p-3">
           <p className="text-xs text-blue-700 leading-relaxed">
-            📊 {dataSource === 'rss' ? '실시간 뉴스' : '기본'} 데이터 기준
+            📊 {dataSource === 'naver' ? '네이버 뉴스' : dataSource === 'rss' ? '실시간 뉴스' : '기본'} 데이터 기준
             <strong> 많이 언급된 종목</strong>을 요약한 정보입니다.<br />
             투자 추천이 아니며, 실제 투자는 증권사 앱에서 직접 진행하세요.
           </p>
@@ -131,7 +131,7 @@ export default function Result() {
             filtered.map((stock) => (
               <button
                 key={stock.code}
-                onClick={() => navigate(`/detail/${stock.code}`)}
+                onClick={() => navigate(`/detail/${stock.code}`, { state: { stock } })}
                 className="w-full text-left bg-white rounded-2xl p-4 shadow-sm active:scale-95 transition-all"
               >
                 {/* 종목명 + 신뢰도 배지 */}

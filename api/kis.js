@@ -1,17 +1,4 @@
-const getAccessToken = async (appKey, appSecret) => {
-  const res = await fetch('https://openapi.koreainvestment.com:9443/oauth2/tokenP', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      grant_type: 'client_credentials',
-      appkey: appKey,
-      appsecret: appSecret,
-    }),
-  })
-  if (!res.ok) throw new Error('토큰 발급 실패')
-  const data = await res.json()
-  return data.access_token
-}
+import { getKisToken } from './kisToken.js'
 
 const getTopVolume = async (token, appKey, appSecret) => {
   const res = await fetch(
@@ -44,7 +31,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const token = await getAccessToken(appKey, appSecret)
+    const token = await getKisToken(appKey, appSecret)
     const items = await getTopVolume(token, appKey, appSecret)
 
     const stocks = items

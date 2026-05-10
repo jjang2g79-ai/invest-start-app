@@ -1,3 +1,5 @@
+import { getKisToken } from './kisToken.js'
+
 const searchNaver = async (query, clientId, clientSecret) => {
   try {
     const encoded = encodeURIComponent(query)
@@ -86,21 +88,8 @@ const getTopStocks = async () => {
       return getDefaultStocks()
     }
 
-    // KIS API 토큰 발급
-    const tokenRes = await fetch('https://openapi.koreainvestment.com:9443/oauth2/tokenP', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        grant_type: 'client_credentials',
-        appkey: appKey,
-        appsecret: appSecret,
-      }),
-      signal: AbortSignal.timeout(5000),
-    })
-
-    if (!tokenRes.ok) return getDefaultStocks()
-    const tokenData = await tokenRes.json()
-    const token = tokenData.access_token
+    // 캐싱된 토큰 사용 (하루 1회만 발급)
+    const token = await getKisToken(appKey, appSecret)
 
     // 거래량 상위 종목 조회
     const rankRes = await fetch(

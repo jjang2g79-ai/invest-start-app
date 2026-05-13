@@ -51,6 +51,7 @@ export default function Result() {
   const [stocks, setStocks] = useState([])
   const [loading, setLoading] = useState(true)
   const [dataSource, setDataSource] = useState('')
+  const [showNotBuyable, setShowNotBuyable] = useState(false)
 
   useEffect(() => {
     const fetchStocks = async () => {
@@ -84,6 +85,16 @@ export default function Result() {
   }
 
   const filtered = filterByTendency(stocks, tendency)
+
+  const buyable = filtered.filter((stock) => {
+    const calc = calcBuyable(amount, stock.suggestedRatio, stock.marketData?.currentPrice)
+    return !calc || calc.canBuy
+  })
+
+  const notBuyable = filtered.filter((stock) => {
+    const calc = calcBuyable(amount, stock.suggestedRatio, stock.marketData?.currentPrice)
+    return calc && !calc.canBuy
+  })
 
   return (
     <div className="min-h-screen bg-gray-50 flex justify-center">
@@ -123,112 +134,171 @@ export default function Result() {
 
         {/* 종목 카드 목록 */}
         <div className="flex flex-col gap-3 px-4 pt-4 pb-24">
-          {filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-              <span className="text-4xl mb-3">😅</span>
-              <p className="text-sm">해당 성향에 맞는 종목 데이터가 없어요</p>
-            </div>
-          ) : (
-            filtered.map((stock) => (
-              <button
-                key={stock.code}
-                onClick={() => navigate(`/detail/${stock.code}`, { state: { stock } })}
-                className="w-full text-left bg-white rounded-2xl p-4 shadow-sm active:scale-95 transition-all"
-              >
-                {/* 종목명 + 신뢰도 배지 */}
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex flex-col">
-                    <span className="text-xs text-gray-400 font-medium mb-0.5">
-                      {stock.type}
+
+          {/* 구매 가능 종목 */}
+          <div className="flex flex-col gap-3">
+            {buyable.length === 0 ? (
+              <div className="text-center py-12 text-gray-400">
+                <p className="text-4xl mb-3">😅</p>
+                <p className="font-medium mb-2">투자금으로 살 수 있는 종목이 없어요</p>
+                <p className="text-sm">투자금을 늘려보세요</p>
+              </div>
+            ) : (
+              buyable.map((stock) => (
+                <button
+                  key={stock.code}
+                  onClick={() => navigate(`/detail/${stock.code}`, { state: { stock } })}
+                  className="w-full text-left bg-white rounded-2xl p-4 shadow-sm active:scale-95 transition-all"
+                >
+                  {/* 종목명 + 신뢰도 배지 */}
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full mr-2">
+                        {stock.type}
+                      </span>
+                      <span className="font-bold text-gray-900">{stock.name}</span>
+                      <p className="text-xs text-gray-400 mt-0.5">#{stock.code}</p>
+                    </div>
+                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${trustColor[stock.trustLevel]}`}>
+                      신뢰도 {stock.trustLevel}
                     </span>
-                    <span className="font-bold text-gray-900 text-base leading-tight">
-                      {stock.name}
-                    </span>
-                    <span className="text-xs text-gray-400 mt-0.5">#{stock.code}</span>
                   </div>
-                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full flex-shrink-0 ml-2 ${trustColor[stock.trustLevel]}`}>
-                    신뢰도 {stock.trustLevel}
+
+                  {/* 요약 */}
+                  <p className="text-sm text-gray-600 mb-2">{stock.summary}</p>
+
+                  {/* 한투 시장 데이터 */}
+                  {stock.marketData && (
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="text-sm font-bold text-gray-800">
+                        ₩{stock.marketData.currentPrice}
+                      </span>
+                      <span className={`text-sm font-medium ${
+                        stock.marketData.changeSign === '2' || stock.marketData.changeSign === '1'
+                          ? 'text-red-500'
+                          : stock.marketData.changeSign === '4' || stock.marketData.changeSign === '5'
+                          ? 'text-blue-500'
+                          : 'text-gray-500'
+                      }`}>
+                        {stock.marketData.changeSign === '2' || stock.marketData.changeSign === '1' ? '▲' :
+                         stock.marketData.changeSign === '4' || stock.marketData.changeSign === '5' ? '▼' : '-'}
+                        {stock.marketData.changeRate}%
+                      </span>
+                      <span className="text-xs text-gray-400">거래량 {stock.marketData.volume}</span>
+                    </div>
+                  )}
+
+                  {/* 통계 행 */}
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-gray-400">언급</span>
+                      <span className="text-sm font-bold text-gray-700">{stock.mentionCount}회</span>
+                    </div>
+                    <div className="w-px h-3 bg-gray-200" />
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-gray-400">변동성</span>
+                      <span className="text-sm font-medium text-gray-700">{stock.volatility}</span>
+                    </div>
+                    <div className="w-px h-3 bg-gray-200" />
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-gray-400">정책</span>
+                      <span className={`text-sm font-medium ${policyColor[stock.policySignal.strength]}`}>
+                        {stock.policySignal.strength}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 구매 가능 주수 */}
+                  {(() => {
+                    const calc = calcBuyable(amount, stock.suggestedRatio, stock.marketData?.currentPrice)
+                    return calc?.canBuy ? (
+                      <div className="bg-blue-50 rounded-xl px-3 py-2 flex items-center justify-between">
+                        <span className="text-xs text-gray-500">구매 가능</span>
+                        <span className="text-sm font-bold text-blue-600">
+                          {calc.buyableShares}주 ({calc.actualAmount.toLocaleString('ko-KR')}원)
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50 rounded-xl px-3 py-2 flex items-center justify-between">
+                        <span className="text-xs text-gray-500">배분 참고금액</span>
+                        <span className="text-sm font-bold text-blue-600">
+                          약 {Math.floor(amount * stock.suggestedRatio / 10000).toFixed(1)}만원
+                        </span>
+                      </div>
+                    )
+                  })()}
+
+                  <p className="text-right text-xs text-gray-400 mt-2">상세 보기 →</p>
+                </button>
+              ))
+            )}
+          </div>
+
+          {/* 투자금 부족 종목 — 접기/펼치기 */}
+          {notBuyable.length > 0 && (
+            <div className="mt-4">
+              <button
+                onClick={() => setShowNotBuyable(!showNotBuyable)}
+                className="w-full flex items-center justify-between bg-orange-50 rounded-2xl px-4 py-3"
+              >
+                <div>
+                  <span className="text-sm font-medium text-orange-700">
+                    💰 투자금을 늘리면 살 수 있는 종목
+                  </span>
+                  <span className="text-xs text-orange-500 ml-2">
+                    {notBuyable.length}개
                   </span>
                 </div>
-
-                {/* 요약 */}
-                <p className="text-sm text-gray-600 mb-3 leading-relaxed">{stock.summary}</p>
-
-                {/* 통계 행 */}
-                <div className="flex items-center gap-4 mb-3">
-                  <div className="flex flex-col items-center">
-                    <span className="text-xs text-gray-400">언급</span>
-                    <span className="text-sm font-bold text-gray-800">{stock.mentionCount}회</span>
-                  </div>
-                  <div className="w-px h-8 bg-gray-100" />
-                  <div className="flex flex-col items-center">
-                    <span className="text-xs text-gray-400">변동성</span>
-                    <span className="text-sm font-bold text-gray-800">{stock.volatility}</span>
-                  </div>
-                  <div className="w-px h-8 bg-gray-100" />
-                  <div className="flex flex-col items-center">
-                    <span className="text-xs text-gray-400">정책</span>
-                    <span className={`text-sm font-bold ${policyColor[stock.policySignal.strength]}`}>
-                      {stock.policySignal.strength}
-                    </span>
-                  </div>
-                </div>
-
-                {/* 한투 시장 데이터 */}
-                {stock.marketData && (
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="text-sm font-bold text-gray-800">
-                      ₩{stock.marketData.currentPrice}
-                    </span>
-                    <span className={`text-sm font-medium ${
-                      stock.marketData.changeSign === '2' || stock.marketData.changeSign === '1'
-                        ? 'text-red-500'
-                        : stock.marketData.changeSign === '4' || stock.marketData.changeSign === '5'
-                        ? 'text-blue-500'
-                        : 'text-gray-500'
-                    }`}>
-                      {stock.marketData.changeSign === '2' || stock.marketData.changeSign === '1' ? '▲' :
-                       stock.marketData.changeSign === '4' || stock.marketData.changeSign === '5' ? '▼' : '-'}
-                      {stock.marketData.changeRate}%
-                    </span>
-                    <span className="text-xs text-gray-400">거래량 {stock.marketData.volume}</span>
-                  </div>
-                )}
-
-                {/* 배분 금액 + 구매 가능 여부 */}
-                {(() => {
-                  const currentPrice = stock.marketData?.currentPrice
-                  const calc = calcBuyable(amount, stock.suggestedRatio, currentPrice)
-                  return (
-                    <div className={`rounded-xl px-3 py-2 flex items-center justify-between
-                      ${calc && !calc.canBuy ? 'bg-orange-50' : 'bg-gray-50'}`}>
-                      <span className="text-xs text-gray-500">
-                        {calc?.canBuy === false ? '⚠️ 1주 구매 불가' : '배분 참고금액'}
-                      </span>
-                      <div className="text-right">
-                        {calc ? (
-                          <span className={`text-sm font-bold ${calc.canBuy ? 'text-blue-600' : 'text-orange-500'}`}>
-                            {calc.canBuy
-                              ? `${calc.buyableShares}주 (${formatKRW(calc.actualAmount)})`
-                              : `최소 ${formatKRW(calc.minRequired)}`
-                            }
-                          </span>
-                        ) : (
-                          <span className="text-sm font-bold text-blue-600">
-                            약 {formatKRW(Math.floor(amount * stock.suggestedRatio))}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })()}
-
-                <div className="text-right text-xs text-gray-400 mt-2">
-                  상세 보기 →
-                </div>
+                <span className="text-orange-500 text-sm">
+                  {showNotBuyable ? '접기 ▲' : '펼치기 ▼'}
+                </span>
               </button>
-            ))
+
+              {showNotBuyable && (
+                <div className="flex flex-col gap-3 mt-3">
+                  {notBuyable.map((stock) => {
+                    const calc = calcBuyable(amount, stock.suggestedRatio, stock.marketData?.currentPrice)
+                    return (
+                      <button
+                        key={stock.code}
+                        onClick={() => navigate(`/detail/${stock.code}`, { state: { stock } })}
+                        className="w-full text-left bg-white rounded-2xl p-4 shadow-sm opacity-75 active:scale-95 transition-all"
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full mr-2">
+                              {stock.type}
+                            </span>
+                            <span className="font-bold text-gray-900">{stock.name}</span>
+                          </div>
+                          <span className="text-xs bg-orange-100 text-orange-600 px-2 py-1 rounded-full font-medium">
+                            최소 {calc ? Math.ceil(calc.minRequired / 10000) + '만원' : '-'}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-500 mb-2">{stock.summary}</p>
+                        {stock.marketData && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-gray-700">
+                              ₩{stock.marketData.currentPrice}
+                            </span>
+                            <span className={`text-xs ${
+                              stock.marketData.changeSign === '2' || stock.marketData.changeSign === '1'
+                                ? 'text-red-500' : 'text-blue-500'
+                            }`}>
+                              {stock.marketData.changeSign === '2' || stock.marketData.changeSign === '1'
+                                ? '▲' : '▼'}{stock.marketData.changeRate}%
+                            </span>
+                          </div>
+                        )}
+                        <p className="text-right text-xs text-gray-400 mt-2">상세 보기 →</p>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           )}
+
         </div>
 
         {/* 하단 고정 버튼 */}

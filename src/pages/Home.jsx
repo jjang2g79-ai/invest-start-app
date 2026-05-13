@@ -1,10 +1,13 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { saveInvestAmount } from "../utils/storage"
+import { saveInvestAmount, getInvestAmount } from "../utils/storage"
 
 export default function Home() {
   const navigate = useNavigate()
-  const [amount, setAmount] = useState("")
+  const [amount, setAmount] = useState(() => {
+    const saved = getInvestAmount()
+    return saved ? String(saved) : ""
+  })
   const [error, setError] = useState("")
 
   const quickAmounts = [50000, 100000, 300000, 500000]
